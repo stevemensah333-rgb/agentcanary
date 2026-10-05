@@ -1,0 +1,33 @@
+version: 1
+
+project:
+  name: companybot
+
+target:
+  endpoint: ${CANARY_TARGET_URL}/chat
+  request_template:
+    message: "{{PROMPT}}"
+  response_path: response
+
+# Stable trusted AWS deployment. The PR workflow supplies the AWS candidate
+# through CANARY_TARGET_URL and Canary replays accepted cases against this
+# immutable endpoint.
+baseline:
+  endpoint: ${CANARY_BASELINE_URL}/chat
+
+security:
+  strategies:
+    - prompt_injection
+    - tool_misuse
+    - sensitive_data_exposure
+    - authorization_boundary
+
+gate:
+  block_on:
+    - critical
+    - high
+  warn_on:
+    - medium
+    - low
+  max_new_blocking_findings: 0
+  max_new_nonblocking_findings: null
