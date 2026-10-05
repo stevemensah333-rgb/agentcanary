@@ -6,22 +6,41 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   agent-canary:
-    # This file is a copy-ready integration template. A target repository sets
-    # the scoped token and exposes its preview URL as a repository variable or
-    # replaces it with its deployment job output.
-    if: ${{ secrets.CANARY_API_URL != '' && secrets.CANARY_PROJECT_TOKEN != '' && vars.CANARY_TARGET_URL != '' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 25
+
+    env:
+      CANARY_API_URL: ${{ secrets.CANARY_API_URL }}
+      CANARY_PROJECT_TOKEN: ${{ secrets.CANARY_PROJECT_TOKEN }}
+      CANARY_TARGET_URL: ${{ vars.CANARY_TARGET_URL }}
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Report missing configuration
+        if: >-
+          ${{ env.CANARY_API_URL == '' ||
+              env.CANARY_PROJECT_TOKEN == '' ||
+              env.CANARY_TARGET_URL == '' }}
+        run: |
+          echo "::warning::Canary gate skipped: configure the API URL, project token and target URL."
+
       - name: Agent Canary
+        if: >-
+          ${{ env.CANARY_API_URL != '' &&
+              env.CANARY_PROJECT_TOKEN != '' &&
+              env.CANARY_TARGET_URL != '' }}
         uses: ./action
         with:
-          api-url: ${{ secrets.CANARY_API_URL }}
-          api-token: ${{ secrets.CANARY_PROJECT_TOKEN }}
-          target-url: ${{ vars.CANARY_TARGET_URL }}
+          api-url: ${{ env.CANARY_API_URL }}
+          api-token: ${{ env.CANARY_PROJECT_TOKEN }}
+          target-url: ${{ env.CANARY_TARGET_URL }}
           baseline-url: ${{ vars.CANARY_BASELINE_URL }}
           target-verification-token: ${{ secrets.CANARY_TARGET_VERIFICATION_TOKEN }}
+          config-path: canary.yaml
+          environment: preview
