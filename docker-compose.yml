@@ -1,11 +1,4 @@
-# Ports: 8000 (nginx/React SPA), 8001 (FastAPI/uvicorn direct access)
-#   nginx reverse-proxies /api/* to redteam-backend:8001 internally.
-#   8001 is also mapped to the host for direct FastAPI/uvicorn inspection.
-#
-# A local HTTP target agent runs OUTSIDE Docker on the host:
-#   cd cyber-redteam-foundry && PYTHONPATH=src python -m target_agent.server --port 9000
-# The backend reaches it via host.docker.internal:9000 (extra_hosts below).
-
+# Local-only integration stack. See docs/LOCAL_DEVELOPMENT.md.
 networks:
   canary-net:
     driver: bridge
@@ -38,11 +31,13 @@ services:
       - ./cyber-redteam-foundry/.env
     environment:
       - RUNNING_IN_DOCKER=true
+      - API_SECRET_KEY=${API_SECRET_KEY:?export API_SECRET_KEY}
+      - ALLOW_PRIVATE_TARGETS=true
       - REDIS_URL=redis://canary-redis:6379/0
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     volumes:
       - ./runs:/app/runs
       - ./reports:/app/reports
@@ -56,10 +51,13 @@ services:
       context: ./canary
       dockerfile: Dockerfile
     ports:
-      - "8000:80"
+      - "127.0.0.1:8000:8000"
     environment:
-      # Server-side nginx proxy only; never bake this into a VITE_* variable.
-      API_SECRET_KEY: "${API_SECRET_KEY:?export API_SECRET_KEY before docker compose up}"
+      CANARY_API_URL: http://redteam-backend:8001
+      CANARY_API_TOKEN: "${API_SECRET_KEY:?export API_SECRET_KEY}"
+      # Loopback-only local demo. Production image defaults to OAuth.
+      NODE_ENV: development
+      AUTH_REQUIRED: "false"
     networks:
       - canary-net
     restart: unless-stopped
@@ -68,6 +66,7 @@ services:
 
   # ── Internal: durable release worker (enabled when mode=rq) ──────────────
   redteam-worker:
+    profiles: [worker]
     build:
       context: ./cyber-redteam-foundry
       dockerfile: Dockerfile
@@ -76,6 +75,7 @@ services:
       - ./cyber-redteam-foundry/.env
     environment:
       - RUNNING_IN_DOCKER=true
+      - ALLOW_PRIVATE_TARGETS=true
       - REDIS_URL=redis://canary-redis:6379/0
     volumes:
       - ./runs:/app/runs
@@ -85,6 +85,26 @@ services:
     restart: unless-stopped
     depends_on:
       - canary-redis
+
+  demo-agent:
+    profiles: [model-target]
+    build:
+      context: ./demo-agent
+    env_file:
+      - ./demo-agent/.env
+    ports:
+      - "127.0.0.1:9000:8000"
+    networks:
+      - canary-net
+
+  demo-fixture:
+    build:
+      context: ./demo-agent
+    command: uvicorn companybot.fixture:app --host 0.0.0.0 --port 8000
+    ports:
+      - "127.0.0.1:9001:8000"
+    networks:
+      - canary-net
 
 volumes:
   canary-redis-data:

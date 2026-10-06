@@ -237,7 +237,7 @@ def test_ci_release_auto_registers_repository_from_checked_in_config(mock_db, mo
     response = client.post(
         "/api/ci/releases",
         json={
-            "repository": "Auro-rium/canary-demo-agent",
+            "repository": "stevemensah333-rgb/agentcanary",
             "commit_sha": "deadbeef",
             "ref": "feature/document-access",
             "event_name": "pull_request",
@@ -251,6 +251,6 @@ def test_ci_release_auto_registers_repository_from_checked_in_config(mock_db, mo
     )
     assert response.status_code == 202
     assert response.json()["release_id"] == "ci-release"
-    assert captured["project"].repository == "auro-rium/canary-demo-agent"
+    assert captured["project"].repository == "stevemensah333-rgb/agentcanary"
     assert captured["git_ref"] == "feature/document-access"
     assert captured["default_branch"] == "main"

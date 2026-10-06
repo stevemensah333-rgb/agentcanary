@@ -8,6 +8,7 @@ def test_backboard_structured_response_is_validated(monkeypatch):
     captured = {}
 
     class Response:
+        status_code = 200
         def raise_for_status(self):
             return None
 
@@ -30,6 +31,7 @@ def test_backboard_structured_response_is_validated(monkeypatch):
 
 def test_backboard_text_response(monkeypatch):
     class Response:
+        status_code = 200
         def raise_for_status(self):
             return None
 
@@ -39,3 +41,15 @@ def test_backboard_text_response(monkeypatch):
     monkeypatch.setattr("httpx.post", lambda *args, **kwargs: Response())
     llm = BackboardObservableLLM("secret", "doctor", "moonshotai/kimi-k2.6", "openrouter")
     assert llm.invoke_text("system", "user") == "OK"
+
+
+def test_per_role_model_and_provider_overrides(monkeypatch):
+    from cyberredteam.llm.factory import get_model_for_agent, get_provider_for_agent
+    monkeypatch.setenv('BACKBOARD_MODEL_NAME', 'global-model')
+    monkeypatch.setenv('BACKBOARD_LLM_PROVIDER', 'global-provider')
+    monkeypatch.setenv('CANARY_EVALUATOR_MODEL', 'judge-model')
+    monkeypatch.setenv('CANARY_EVALUATOR_PROVIDER', 'judge-provider')
+    assert get_model_for_agent('evaluator') == 'judge-model'
+    assert get_model_for_agent('attacker') == 'global-model'
+    assert get_provider_for_agent('evaluator') == 'judge-provider'
+    assert get_provider_for_agent('attacker') == 'global-provider'

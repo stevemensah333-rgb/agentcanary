@@ -35,3 +35,10 @@ canary/.env*
 runs/
 reports/
 .vercel
+
+# Monorepo Python caches and demo output
+**/__pycache__/
+**/.pytest_cache/
+demo-agent/.venv/
+demo-agent/*.egg-info/
+.local/

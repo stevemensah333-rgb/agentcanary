@@ -65,7 +65,25 @@ export default async function handler(req, res) {
     const contentType = response.headers.get('content-type')
     if (contentType) res.setHeader('content-type', contentType)
     res.setHeader('cache-control', 'no-store')
-    res.send(Buffer.from(await response.arrayBuffer()))
+    if (contentType?.includes('text/event-stream') && response.body) {
+      res.setHeader('x-accel-buffering', 'no')
+      const reader = response.body.getReader()
+      const cancel = () => { reader.cancel().catch(() => {}) }
+      res.on('close', cancel)
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          res.write(Buffer.from(value))
+        }
+        res.end()
+      } finally {
+        res.off('close', cancel)
+        reader.releaseLock()
+      }
+    } else {
+      res.send(Buffer.from(await response.arrayBuffer()))
+    }
   } catch {
     res.status(502).json({ detail: 'Canary backend is unavailable.' })
   }
