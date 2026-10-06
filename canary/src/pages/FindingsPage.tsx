@@ -236,14 +236,14 @@ function TransitionPanel({ finding, onRefresh }: { finding: Finding; onRefresh: 
             value={reviewerId}
             onChange={e => setReviewerId(e.target.value)}
             placeholder="Reviewer ID"
-            className="bg-white/[0.03] border border-white/15 text-white text-[10px] px-3 py-2 placeholder:text-white/20 outline-none focus:border-white/30 transition-colors font-mono"
+            className="bg-white/[0.03] border border-white/15 text-white text-[10px] px-3 py-2 placeholder:text-white/20 outline-hidden focus:border-white/30 transition-colors font-mono"
           />
           <textarea
             value={rationale}
             onChange={e => setRationale(e.target.value)}
             placeholder="Rationale for this transition..."
             rows={2}
-            className="bg-white/[0.03] border border-white/15 text-white text-[10px] px-3 py-2 placeholder:text-white/20 outline-none focus:border-white/30 transition-colors font-mono resize-none"
+            className="bg-white/[0.03] border border-white/15 text-white text-[10px] px-3 py-2 placeholder:text-white/20 outline-hidden focus:border-white/30 transition-colors font-mono resize-none"
           />
         </div>
       )}
@@ -256,7 +256,7 @@ function TransitionPanel({ finding, onRefresh }: { finding: Finding; onRefresh: 
             value={replayRunId}
             onChange={e => setReplayRunId(e.target.value)}
             placeholder="Replay Run ID"
-            className="bg-white/[0.03] border border-white/15 text-white text-[10px] px-3 py-2 placeholder:text-white/20 outline-none focus:border-white/30 transition-colors font-mono"
+            className="bg-white/[0.03] border border-white/15 text-white text-[10px] px-3 py-2 placeholder:text-white/20 outline-hidden focus:border-white/30 transition-colors font-mono"
           />
           <label className="flex items-center gap-2 text-[10px] text-white/40 font-mono">
             <input type="checkbox" checked={guardrailIntervened} onChange={e => setGuardrailIntervened(e.target.checked)} /> Guardrail intervened (confirmed via replay)

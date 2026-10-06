@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "cyber-redteam-foundry"
 version = "0.1.0"
 description = "Local cybersecurity red-team and defense loop for AI agents using AWS Bedrock (Claude)"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.11,<3.14"
 authors = [
     {name = "Cyber Red Team", email = "team@example.com"},
 ]
@@ -36,6 +36,16 @@ dependencies = [
     "numpy>=1.24.0",
 ]
 
+[tool.uv]
+# GHSA-fvww-7h3r-vfhp: resource-scoped authorization actions must be enforced.
+constraint-dependencies = [
+    "langgraph-sdk>=0.4.4",
+    "langgraph-checkpoint-sqlite>=3.1.1",
+    "anyio>=4.14.2",
+    "urllib3>=2.8.0",
+    "setuptools>=83.0.0",
+]
+
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 
@@ -45,7 +55,7 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [project.optional-dependencies]
-embeddings = ["sentence-transformers>=2.7.0", "torch>=2.0.0"]
+embeddings = ["sentence-transformers>=2.7.0", "torch>=2.13.0"]
 test = ["pytest>=7.4.0", "pytest-cov>=4.1.0", "pytest-asyncio>=0.21.0"]
 dev = [
     "pytest>=7.4.0",

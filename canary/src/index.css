@@ -1,7 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
+@layer base {
 * {
   margin: 0;
   padding: 0;
@@ -21,6 +21,7 @@ body {
   text-align: left;
   border: none;
   min-height: 100svh;
+}
 }
 
 @keyframes fadeSlideUp {

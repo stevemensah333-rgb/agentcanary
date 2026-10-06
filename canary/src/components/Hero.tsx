@@ -29,7 +29,7 @@ export default function Hero({ onRunAudit }: HeroProps) {
       <div className="absolute inset-0 bg-black/55 pointer-events-none z-[5]" />
 
       {/* Layer 2b: Bottom fade to solid black */}
-      <div className="absolute inset-x-0 bottom-0 h-[65%] bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none z-[5]" />
+      <div className="absolute inset-x-0 bottom-0 h-[65%] bg-linear-to-t from-black via-black/60 to-transparent pointer-events-none z-[5]" />
 
       {/* Layer 3: Content */}
       <div className="relative z-10 h-full flex flex-col justify-end px-6 sm:px-10 md:px-16 lg:px-20 pb-12 md:pb-16 lg:pb-20">

@@ -73,9 +73,3 @@ The $20,000 grant request and six-month deliverables remain proposals. No
 funding award, provider-cost measurement, human calibration, 200-case dataset,
 or deployed research study is claimed here. Historical source-demo results
 are not evidence from this checkout.
-
-The existing integrated source was selected at commit
-`df4e915ac8907e79140cd4ccf6d2e4d92eb0aa0c`; its upstream authors retain credit.
-The demo target's MIT notice is retained in [demo-agent/LICENSE](demo-agent/LICENSE).
-The integrated base has no root license in this checkout; redistribution
-permissions remain unresolved. See [attribution](docs/ATTRIBUTION.md).

@@ -530,7 +530,7 @@ export default function RunAuditPage({ onBack }: RunAuditPageProps) {
                   value={targetUrl}
                   onChange={e => setTargetUrl(e.target.value)}
                   placeholder="https://your-agent-endpoint.com/v1/chat"
-                  className="flex-1 bg-transparent px-3 py-3 text-white text-xs font-mono placeholder:text-white/20 outline-none"
+                  className="flex-1 bg-transparent px-3 py-3 text-white text-xs font-mono placeholder:text-white/20 outline-hidden"
                   disabled={isRunning}
                 />
               </div>
@@ -561,7 +561,7 @@ export default function RunAuditPage({ onBack }: RunAuditPageProps) {
                       onChange={e => setTargetHeaders(e.target.value)}
                       placeholder={'{"Authorization": "Bearer sk-...", "X-API-Key": "..."}'}
                       rows={2}
-                      className="bg-white/[0.03] border border-white/20 focus:border-white/40 transition-colors px-3 py-2 text-white text-xs font-mono placeholder:text-white/20 outline-none resize-none"
+                      className="bg-white/[0.03] border border-white/20 focus:border-white/40 transition-colors px-3 py-2 text-white text-xs font-mono placeholder:text-white/20 outline-hidden resize-none"
                       disabled={isRunning}
                     />
                   </div>
@@ -575,7 +575,7 @@ export default function RunAuditPage({ onBack }: RunAuditPageProps) {
                       onChange={e => setTargetRequestTemplate(e.target.value)}
                       placeholder={'{"messages": [{"role": "user", "content": "{{PROMPT}}"}]}'}
                       rows={2}
-                      className="bg-white/[0.03] border border-white/20 focus:border-white/40 transition-colors px-3 py-2 text-white text-xs font-mono placeholder:text-white/20 outline-none resize-none"
+                      className="bg-white/[0.03] border border-white/20 focus:border-white/40 transition-colors px-3 py-2 text-white text-xs font-mono placeholder:text-white/20 outline-hidden resize-none"
                       disabled={isRunning}
                     />
                   </div>
@@ -589,7 +589,7 @@ export default function RunAuditPage({ onBack }: RunAuditPageProps) {
                       value={targetResponsePath}
                       onChange={e => setTargetResponsePath(e.target.value)}
                       placeholder="choices.0.message.content"
-                      className="bg-white/[0.03] border border-white/20 focus:border-white/40 transition-colors px-3 py-2 text-white text-xs font-mono placeholder:text-white/20 outline-none"
+                      className="bg-white/[0.03] border border-white/20 focus:border-white/40 transition-colors px-3 py-2 text-white text-xs font-mono placeholder:text-white/20 outline-hidden"
                       disabled={isRunning}
                     />
                   </div>
@@ -633,7 +633,7 @@ export default function RunAuditPage({ onBack }: RunAuditPageProps) {
                     }`}
                   >
                     {selected && (
-                      <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-red-500/60 to-transparent" />
+                      <div className="absolute inset-x-0 top-0 h-[1px] bg-linear-to-r from-transparent via-red-500/60 to-transparent" />
                     )}
                     <div className="flex items-start justify-between mb-3">
                       <span className="text-[10px] text-red-500/70 uppercase tracking-wider font-mono">{tech.asiCode}</span>
@@ -769,7 +769,7 @@ export default function RunAuditPage({ onBack }: RunAuditPageProps) {
           </p>
 
           {/* Summary bar */}
-          <div className="bg-gradient-to-r from-red-950/80 to-black px-6 sm:px-10 md:px-16 lg:px-20 py-4 mt-6 border-y border-red-900/30">
+          <div className="bg-linear-to-r from-red-950/80 to-black px-6 sm:px-10 md:px-16 lg:px-20 py-4 mt-6 border-y border-red-900/30">
             <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
               <span className="text-white font-bold tracking-wider">CAMPAIGN {report.campaign_id}</span>
               <span className="text-red-900">│</span>
