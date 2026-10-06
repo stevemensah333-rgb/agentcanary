@@ -1,0 +1,99 @@
+"""Settings and configuration management."""
+
+from pathlib import Path
+from typing import Optional
+
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
+
+# Load .env into the process environment so that libraries reading os.environ
+# directly — notably boto3's credential chain (AWS_ACCESS_KEY_ID, etc.) — pick
+# up values placed in .env. pydantic-settings reads .env for its own fields,
+# but does NOT export to os.environ; without this, AWS creds in .env are
+# ignored and boto3 falls back to the default ~/.aws profile. override=False
+# keeps any credentials already exported in the shell authoritative.
+load_dotenv(override=False)
+
+
+class Settings(BaseSettings):
+    """Application settings from environment variables."""
+
+    # Backboard provider. Keep the API key server-side.
+    backboard_api_key: Optional[str] = None
+    backboard_base_url: str = "https://app.backboard.io/api"
+    backboard_llm_provider: str = "openrouter"
+    backboard_model_name: str = "openai/gpt-5.6-luna"
+
+    # NVIDIA NIM legacy/provider alternative.
+    nvidia_api_key: Optional[str] = None
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_model: str = "nvidia/nemotron-3-ultra-550b-a55b"
+
+    # API authentication — bearer token for server-side dashboard proxy and CI.
+    # Never expose this value through a VITE_* frontend variable.
+    api_secret_key: Optional[str] = None
+    token_pepper: str = ""
+
+    # Comma-separated public dashboard origins. Keep this explicit in hosted
+    # deployments so the browser API is not open to arbitrary web origins.
+    frontend_origins: str = ""
+
+    # Authorization scope: comma-separated list of target_ids a run may be
+    # created against. When set, a run targeting anything else is rejected —
+    # "attack only what you're allowed to" as a hard constraint. When empty,
+    # no allowlist is enforced (a warning is logged; do not rely on this in
+    # production).
+    allowed_targets: str = ""
+
+    # Local Docker demos can opt into private-network targets. Keep false for
+    # every hosted deployment so target registration cannot become SSRF.
+    allow_private_targets: bool = False
+
+    # Target. Canary always attacks an independently deployed HTTP(S) agent.
+    target_endpoint: Optional[str] = None
+    target_api_key: Optional[str] = None
+
+    # Logging
+    log_level: str = "INFO"
+    log_file: Path = Path("runs/cyber_redteam.log")
+
+    # Database. ``DATABASE_URL`` is used by hosted API/worker deployments
+    # (PostgreSQL on AWS); ``DB_PATH`` remains the backwards-compatible local
+    # SQLite default used by the CLI and test suite.
+    database_url: Optional[str] = None
+    db_path: Path = Path("runs/redteam.db")
+
+    # Release execution. ``thread`` keeps the zero-infrastructure local
+    # workflow; ``rq`` moves release ownership to a durable Redis worker.
+    release_execution_mode: str = "thread"
+    redis_url: Optional[str] = None
+    release_queue_name: str = "canary-releases"
+    release_job_timeout_seconds: int = 3600
+
+    # Report
+    report_output_dir: Path = Path("reports")
+    report_format: str = "markdown"  # markdown | json | both
+
+    # Run Configuration
+    # Total attempts per LLM call (including the first), not retries-after-first.
+    # Applied by the Backboard transport for transient request failures.
+    max_retries: int = 3
+    max_concurrent_runs: int = 3
+    timeout_seconds: int = 30
+    deterministic_seed: int = 42
+
+    @property
+    def database_location(self) -> str | Path:
+        """Return the configured SQLAlchemy URL or local SQLite path."""
+        return self.database_url or self.db_path
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
+        extra = "ignore"  # tolerate leftover AWS_*/legacy env vars
+
+
+def get_settings() -> Settings:
+    """Get application settings singleton."""
+    return Settings()
