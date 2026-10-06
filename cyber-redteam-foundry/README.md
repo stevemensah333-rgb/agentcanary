@@ -2,6 +2,7 @@
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-state%20machine-7c3aed.svg)](https://github.com/langchain-ai/langgraph)
 [![NVIDIA NIM](https://img.shields.io/badge/LLM-NVIDIA%20NIM-76b900.svg)](https://build.nvidia.com/)
 [![sentence-transformers](https://img.shields.io/badge/sentence--transformers-MiniLM--L6--v2-blue.svg)](https://www.sbert.net/)
 [![pytest](https://img.shields.io/badge/tests-111%20passed-brightgreen.svg?logo=pytest)](https://pytest.org/)
@@ -505,29 +506,3 @@ against both baseline and candidate, classifies clean/known/resolved/regression
 behavior, then applies the gate policy and returns PASS, WARN, or BLOCK to the
 PR check. Missing model credentials, unreachable targets, or failed graph
 nodes are recorded as failed runs; they are not reported as successful scans.
-
-## Monorepo development status (2026-10-06)
-
-This backend is part of the owner's Agent Canary monorepo; use the
-[root README](../README.md) and [local setup](../docs/LOCAL_DEVELOPMENT.md) for
-the integrated dashboard/target demo. Historical sections above describe the
-inherited system and are not evidence that hosted services or research results
-were reproduced in this checkout.
-
-Install with `uv sync --locked --extra dev`. Semantic embeddings are optional
-(`--extra embeddings`); ordinary local release comparisons do not require
-PyTorch or a downloaded embedding model. `requests` is now declared directly
-for the HTTP target adapter. The lockfile tracks these manifest decisions.
-
-The fixed pilot scenario runner is `cyberredteam.evaluation.scenarios`. Its
-suite lives in `../research/scenarios/v1.json`. It retains multi-step HTTP
-evidence, repeat indices, hashes, target responses, explicit errors and request
-counts. It is separate from the existing production adaptive LLM campaign.
-See [research status and limits](../docs/RESEARCH_PLAN.md).
-
-`CANARY_<ROLE>_MODEL` and `CANARY_<ROLE>_PROVIDER` override each strategist,
-attacker, evaluator and reporter's Backboard gateway configuration. Model
-precedence is role environment override, global `BACKBOARD_MODEL_NAME`, then
-`configs/models.yaml`. Provider precedence is role environment override then
-global `BACKBOARD_LLM_PROVIDER`. These options select gateway routing; they do
-not assert that every provider/model pair is available or tested.
