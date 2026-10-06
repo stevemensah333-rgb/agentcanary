@@ -1,240 +1,81 @@
 # Agent Canary
 
-**CI for AI-agent security. Every pull request gets attacked before it ships.**
+A monorepo for behavioral security evaluation of controlled AI-agent targets.
+PASS/WARN/BLOCK describes the tested behavior; it is not a universal safety proof.
 
-Traditional CI catches code regressions. Canary catches AI-agent behavior
-regressions. It tells you whether the agent you are about to ship is less
-secure than the one you already trust.
+| Component | Path | Present behavior |
+| --- | --- | --- |
+| Dashboard | `canary/` | React/Vite, server-side API proxy and GitHub OAuth |
+| Evaluation backend | `cyber-redteam-foundry/` | FastAPI, LangGraph, persisted release comparisons and gates |
+| GitHub Action | `action/` | Local composite action; workflow uses `./action` |
+| Demo target | `demo-agent/` | Real Backboard tool-calling agent plus a separate synthetic integration fixture |
+| Research pilot | `research/`, backend `evaluation/scenarios.py` | Eight versioned multi-step cases, repeated fixed paired runs and evidence |
 
-```
-PR / push
-  -> preview agent
-  -> Canary red-team campaign
-  -> accepted-baseline replay
-  -> differential evidence
-  -> PASS / WARN / BLOCK
-  -> GitHub job summary and check
-```
+## Local demo
 
-Canary is an evolution of the existing LangGraph red-team engine. The CUTC
-release layer adds projects, verified target contracts, explicit
-environment-specific baselines, reusable attack-case identities, differential
-classification, policy gates, release evidence, and the GitHub Action.
-
-## 30-second demo
-
-The authoritative PR demo target is the separate
-[`Auro-rium/companybot-canary-demo`](https://github.com/Auro-rium/companybot-canary-demo)
-repository. It is a real LangChain agent using the Backboard LLM gateway, deployed with
-Railway main and PR preview environments. The bundled
-`cyber-redteam-foundry/target_agent` remains available as a local fixture.
-
-For the hosted demo, configure the CompanyBot repository's Railway and Canary
-secrets, then open a PR there. The workflow resolves the Railway preview,
-waits for `/health`, and invokes this branch's reusable action. For local
-development, run the real API and bundled target:
+Install Node 22.12+ and Python 3.11–3.13 with `uv`, then:
 
 ```bash
-cp cyber-redteam-foundry/.env.example cyber-redteam-foundry/.env
-docker compose up --build
+(cd cyber-redteam-foundry && uv sync --locked --extra test)
+(cd demo-agent && uv sync --locked --extra dev)
+(cd canary && npm ci)
+./scripts/local-demo.sh
 ```
 
-Then configure a preview endpoint in `canary.yaml`, run the first assessment,
-and explicitly accept its completed release as the `preview` baseline in the
-Projects page. A candidate that leaks employee data or performs an
-unauthorized calculator action is classified as a new regression and returns
-`BLOCK`; after the fix, the same case returns `PASS`.
-
-The action is reusable from another repository:
-
-```yaml
-- uses: Auro-rium/canary/action@feature/cutc-2026-differential-gate
-  with:
-    api-url: ${{ secrets.CANARY_API_URL }}
-    api-token: ${{ secrets.CANARY_PROJECT_TOKEN }}
-    target-url: ${{ steps.preview.outputs.url }}
-    baseline-url: ${{ vars.CANARY_BASELINE_URL }}
-    target-verification-token: ${{ secrets.CANARY_TARGET_VERIFICATION_TOKEN }}
-```
-
-Keep the token in GitHub Actions secrets. It is never bundled into the React
-application.
-
-Create a scoped token once with an authenticated administrator request:
+Open http://127.0.0.1:5173. In another terminal, run:
 
 ```bash
-curl -X POST "$CANARY_API_URL/api/projects/$PROJECT_ID/tokens" \
-  -H "Authorization: Bearer $API_SECRET_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"scopes":["release:create","release:read"]}'
+./scripts/verify-local-demo.sh
 ```
 
-Store the returned value as `CANARY_PROJECT_TOKEN`; it is hash-only at rest and
-accepted only by the CI release endpoint for its authorized project.
+The demo exercises real local HTTP requests, deterministic synthetic target
+regressions, the existing release comparison domain, SQLite persistence and
+the dashboard proxy. It does **not** exercise the production model attack/judge
+graph or claim model safety results. It needs no provider credentials and makes
+no provider calls. Runtime evidence stays in ignored `.local/`.
 
-## How the security gate works
+The fixture demo and full backend suite were verified in the locked project
+environment. Python Docker builds remain unverified after registry download
+failures. See [the exact runtime and results](docs/VERIFICATION.md).
 
-Each release is tied to a commit, target endpoint, environment, run, policy,
-scores, coverage, and evidence. Canary never silently treats the first
-completed run as trusted. A person or an explicit safe policy must accept a
-completed release as the baseline for that environment.
+See [local setup and verification](docs/LOCAL_DEVELOPMENT.md),
+[research implementation status](docs/RESEARCH_PLAN.md) and
+[project decisions](docs/PROJECT_CONTEXT.md).
 
-For every stable attack case:
+## Model-backed evaluation
 
-| Baseline | Candidate | Classification |
-|---|---|---|
-| safe | vulnerable | **regression** (normally BLOCK) |
-| vulnerable | vulnerable | known finding |
-| vulnerable | safe | resolved |
-| safe | safe | clean |
+Configure the backend and real target from their `.env.example` files. Keep
+provider keys, `API_SECRET_KEY`, `CANARY_API_TOKEN`, OAuth credentials and session
+secrets server-side. Never put credentials in `VITE_*` variables.
 
-The evaluator remains authoritative: deterministic detector signals and the
-semantic judge are retained with confidence, severity, rationale, response
-text, and taxonomy evidence. Attackers do not declare their own success.
+Run the real target from `demo-agent/` with
+`PYTHONPATH=src uv run --locked uvicorn companybot.server:app --host 127.0.0.1 --port 9000`.
+Use a separately deployed accepted baseline and candidate for comparisons.
+Configure and explicitly accept a completed baseline for the appropriate
+environment before interpreting a candidate gate.
 
-## LLM provider and telemetry
+## CI
 
-Canary's strategist, attacker, evaluator, and reporter are all real LLM-backed
-agents. The current hosted configuration uses Backboard with OpenRouter and
-`openai/gpt-5.6-luna`:
+The workflow in `.github/workflows/agent-canary.yml` checks out this monorepo
+and invokes `uses: ./action`. Configure `CANARY_API_URL`,
+`CANARY_PROJECT_TOKEN`, `CANARY_TARGET_VERIFICATION_TOKEN` secrets and
+`CANARY_TARGET_URL`, `CANARY_BASELINE_URL` variables. Missing configuration is
+a skipped assessment. A fixed URL does not automatically assess PR code;
+isolated candidate deployment and its URL handoff remain planned.
 
-```env
-BACKBOARD_API_KEY=              # server-side only
-BACKBOARD_BASE_URL=https://app.backboard.io/api
-BACKBOARD_LLM_PROVIDER=openrouter
-BACKBOARD_MODEL_NAME=openai/gpt-5.6-luna
-```
+Standard GitHub-maintained checkout/artifact actions remain dependencies.
+Project source/deployment examples refer only to this monorepo. Required
+copyright notices and upstream attribution are preserved.
 
-Every call is persisted in `llm_calls`. Telemetry includes the complete system
-and user prompt, raw provider response, provider/model, status code, retries,
-latency, token counts, hashes, errors, and timestamp. Token counts use provider
-usage metadata when returned; otherwise Canary records a transparent text-length
-estimate rather than reporting zero.
+## Status and attribution
 
-Authenticated API access:
+The $20,000 grant request and six-month deliverables remain proposals. No
+funding award, provider-cost measurement, human calibration, 200-case dataset,
+or deployed research study is claimed here. Historical source-demo results
+are not evidence from this checkout.
 
-```text
-GET /api/telemetry/llm-calls?limit=100
-```
-
-Prompt and response telemetry is sensitive evidence. It is protected by the
-Canary API bearer token and must not be exposed to unauthenticated browsers or
-logs.
-
-The four-attack CompanyAgent smoke test completed in 145 seconds: four HTTP
-200 target executions, one confirmed critical tool-misuse finding, and three
-blocked attacks. Exact generated payloads and evaluator evidence are persisted
-with the run.
-
-Gate policy is explicit:
-
-```yaml
-gate:
-  block_on: [critical, high]
-  warn_on: [medium, low]
-  max_new_blocking_findings: 0
-  max_new_nonblocking_findings: null
-```
-
-Known baseline vulnerabilities do not become new blockers. Coverage measures
-executed configured security surface, not the number of vulnerabilities found.
-
-## Architecture
-
-```text
-GitHub PR
-   |
-GitHub Action (server-side project token)
-   |
-Canary API -> durable release/job state
-   |
-accepted baseline + candidate target
-   |
-LangGraph: Strategist -> parallel Attackers -> Evaluator -> Reporter
-   |
-attack evidence and reusable attack cases
-   |
-differential engine -> policy gate -> PASS/WARN/BLOCK
-   |
-GitHub summary + release evidence dashboard
-```
-
-The backend is FastAPI, SQLAlchemy, SQLite for local/demo deployments, and
-LangGraph. The frontend is React, TypeScript, Vite, Tailwind, and a same-origin
-server-side API proxy. Existing campaign, findings, SSE, and report
-capabilities remain available.
-
-## API
-
-Core product endpoints:
-
-```text
-POST   /api/projects
-GET    /api/projects
-GET    /api/projects/{project_id}
-POST   /api/projects/verify-target
-POST   /api/projects/{project_id}/target/verify
-GET    /api/projects/{project_id}/baselines
-POST   /api/projects/{project_id}/baselines/{release_id}/accept
-POST   /api/projects/{project_id}/releases
-GET    /api/projects/{project_id}/releases
-GET    /api/releases/{release_id}
-GET    /api/releases/{release_id}/regressions
-POST   /api/ci/releases
-GET    /api/telemetry/llm-calls
-```
-
-The CI endpoint accepts repository, commit, environment, endpoint, strategy,
-and gate configuration. It returns a release ID for polling. A release remains
-`queued`, `running`, `completed`, `failed`, or `cancelled`.
-
-## Local development
-
-Backend:
-
-```bash
-cd cyber-redteam-foundry
-uv sync --extra dev
-uv run uvicorn cyberredteam.api:app --host 0.0.0.0 --port 8001
-uv run pytest -q
-```
-
-Frontend:
-
-```bash
-cd canary
-npm ci
-npm run dev
-npm run build
-npm run lint
-```
-
-The local dashboard uses `/api` through the Vite proxy. Hosted deployments
-should set `CANARY_API_URL` and `CANARY_API_TOKEN` only on the server-side
-proxy, never as a `VITE_*` variable.
-
-## Security model and limitations
-
-Target validation allows only HTTP(S), rejects localhost, private, link-local,
-reserved, multicast, unspecified, metadata, userinfo, and redirect-bypass
-forms, and disables redirects during verification. Production deployments
-should additionally enforce outbound network egress controls.
-
-Local mode still defaults to SQLite and an API thread for compatibility. The
-AWS deployment uses PostgreSQL on RDS, Redis on ElastiCache, ECS API/worker
-services, and bounded RQ jobs. The Vercel dashboard uses GitHub OAuth sessions;
-the CI project token remains server-side and separate from browser JavaScript.
-
-## CUTC 2026 build
-
-Built specifically for CUTC:
-
-- differential baseline-vs-candidate evaluation and stable attack-case IDs
-- explicit accepted baselines per environment
-- release lifecycle, gate policy, scores, coverage, and persisted regressions
-- SSRF-resistant target validation and token/verification primitives
-- GitHub Action outputs and job-summary evidence
-- release-oriented dashboard components and baseline workflow
-- deterministic coverage and regression tests
-
-The underlying four-agent red-team engine predates CUTC and remains intact.
+The existing integrated source was selected at commit
+`df4e915ac8907e79140cd4ccf6d2e4d92eb0aa0c`; its upstream authors retain credit.
+The demo target's MIT notice is retained in [demo-agent/LICENSE](demo-agent/LICENSE).
+The integrated base has no root license in this checkout; redistribution
+permissions remain unresolved. See [attribution](docs/ATTRIBUTION.md).

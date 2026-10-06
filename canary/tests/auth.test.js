@@ -8,8 +8,8 @@ process.env.GITHUB_OAUTH_CLIENT_ID = 'test-client'
 process.env.GITHUB_OAUTH_CLIENT_SECRET = 'test-secret'
 
 test('session tokens are signed and round-trip the allowed identity fields', () => {
-  const token = createSessionToken({ id: 42, login: 'Auro-rium', name: 'Canary Maintainer', avatar_url: null })
-  assert.equal(verifySessionToken(token).login, 'Auro-rium')
+  const token = createSessionToken({ id: 42, login: 'stevemensah333-rgb', name: 'Canary Maintainer', avatar_url: null })
+  assert.equal(verifySessionToken(token).login, 'stevemensah333-rgb')
   assert.equal(verifySessionToken(`${token}tampered`), null)
 })
 
@@ -65,7 +65,7 @@ test('development bypass is explicit and production cannot inherit it', () => {
   process.env.NODE_ENV = 'production'
   assert.equal(authRequired(), true)
   process.env.CANARY_DEV_BYPASS = 'true'
-  assert.equal(authRequired(), false)
+  assert.equal(authRequired(), true)
   if (previousRequired === undefined) delete process.env.AUTH_REQUIRED
   else process.env.AUTH_REQUIRED = previousRequired
   if (previousNodeEnv === undefined) delete process.env.NODE_ENV

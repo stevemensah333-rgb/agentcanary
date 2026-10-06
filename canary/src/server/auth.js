@@ -125,10 +125,7 @@ export function getSession(req) {
 }
 
 export function authRequired() {
-  // Hosted hackathon development can opt into the bypass explicitly. Keep the
-  // second flag separate so a stale AUTH_REQUIRED value cannot disable OAuth
-  // on a normal production deployment.
-  const developmentBypass = process.env.NODE_ENV !== 'production' || process.env.CANARY_DEV_BYPASS === 'true'
+  const developmentBypass = process.env.NODE_ENV !== 'production'
   return !(process.env.AUTH_REQUIRED === 'false' && developmentBypass)
 }
 

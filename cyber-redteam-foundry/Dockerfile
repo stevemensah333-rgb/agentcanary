@@ -1,11 +1,11 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+ENV PIP_DEFAULT_TIMEOUT=120
 
 # Copy manifest first for better layer caching
 COPY pyproject.toml ./
@@ -14,12 +14,7 @@ COPY configs ./configs
 COPY prompts ./prompts
 COPY target_agent ./target_agent
 
-# Pre-install CPU torch to avoid downloading the 4 GB CUDA wheel
-RUN pip install --no-cache-dir \
-    "torch>=2.0.0" \
-    --index-url https://download.pytorch.org/whl/cpu
-
-# Install the project (torch requirement already satisfied above)
+# Semantic embeddings are optional; the local demo needs no model downloads.
 RUN pip install --no-cache-dir -e .
 
 ENV PYTHONPATH=/app:/app/src

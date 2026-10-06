@@ -1,0 +1,50 @@
+name: Local integration verification
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dashboard checks
+        working-directory: canary
+        run: |
+          npm ci
+          npm run build
+          npm run lint
+          npm run test:api
+      - name: Python environments and checks
+        run: |
+          mkdir -p .local
+          python3 -m venv .local/tools
+          .local/tools/bin/pip install uv
+          .local/tools/bin/uv sync --project cyber-redteam-foundry --locked --extra test
+          .local/tools/bin/uv sync --project demo-agent --locked --extra dev
+          (cd demo-agent && .venv/bin/pytest -q)
+          (cd cyber-redteam-foundry && .venv/bin/pytest -q)
+      - name: End-to-end fixture demo
+        run: |
+          ./scripts/local-demo.sh &
+          demo_pid=$!
+          trap 'kill "$demo_pid" 2>/dev/null || true' EXIT
+          python3 - <<'PY'
+          import time
+          from urllib.request import urlopen
+          for attempt in range(30):
+              try:
+                  for url in ['http://127.0.0.1:8001/health', 'http://127.0.0.1:9000/health', 'http://127.0.0.1:5173/api/auth/session']:
+                      with urlopen(url, timeout=1) as response:
+                          assert response.status == 200
+                  break
+              except Exception:
+                  if attempt == 29:
+                      raise
+                  time.sleep(1)
+          PY
+          ./scripts/verify-local-demo.sh

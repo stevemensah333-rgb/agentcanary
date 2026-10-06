@@ -95,7 +95,7 @@ def chat(req: ChatRequest, request: Request, response: Response) -> ChatResponse
     except Exception:
         logger.exception("CompanyAgent invocation failed")
         # Do not expose provider or credential details to callers.
-        answer = "I could not complete that request. Please try again."
+        raise HTTPException(status_code=503, detail="CompanyAgent provider is unavailable.") from None
     return ChatResponse(response=answer, timestamp=datetime.now(UTC).isoformat())
 
 

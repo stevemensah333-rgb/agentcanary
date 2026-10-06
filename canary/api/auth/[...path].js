@@ -88,9 +88,8 @@ export default async function handler(req, res) {
     return
   }
 
-  // Local development can intentionally bypass OAuth. A hosted deployment
-  // must keep AUTH_REQUIRED=true unless CANARY_DEV_BYPASS is explicitly set
-  // for a short-lived development/demo environment.
+  // Local development can intentionally bypass OAuth. Production always
+  // requires OAuth, regardless of development bypass environment flags.
   if (authBypassEnabled() && route === 'session') {
     return json(res, 200, {
       authenticated: true,

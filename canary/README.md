@@ -1,235 +1,35 @@
-# Agent Canary
+# Agent Canary dashboard
 
-[![React 19](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org/)
-[![Vite 8](https://img.shields.io/badge/Vite-8-646cff.svg)](https://vite.dev/)
-[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3-38bdf8.svg)](https://tailwindcss.com/)
-[![nginx](https://img.shields.io/badge/nginx-1.25--alpine-009639.svg)](https://nginx.org/)
-[![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ed.svg)](https://www.docker.com/)
-
-Authenticated release-evidence dashboard for the **Cyber Red Team Foundry** backend, built with React 19 + TypeScript + Vite 8. CI owns attack execution; the browser never holds a Canary bearer token.
-
-The Vercel deployment uses a server-side GitHub OAuth session. The `/api/*`
-proxy requires that session before forwarding requests to Canary and injects the
-server-only backend credential. GitHub OAuth access tokens are exchanged and
-discarded server-side; only a signed, short-lived HttpOnly session cookie is
-sent to the browser.
-
----
-
-## Pages
-
-### RunAuditPage — `/audit`
-
-Historical campaign monitoring. Production attack launches happen in GitHub Actions.
-
-- Submits `POST /api/campaigns/run` with target URL, attack strategies, and intensity.
-- Opens SSE stream for live events; renders 4-node agent topology with animated edges.
-- Three phases: **CONFIG → RUNNING → REPORT**.
-- Final report: campaign_id, run_id, finding counts (by severity), duration, target.
-- The public deployment does not simulate results when API access is unavailable.
-
-**SSE event types** emitted by `POST /api/campaigns/run`:
-
-| Event | Payload summary |
-|---|---|
-| `agent_state` | Agent name + current state (idle, active, complete) — drives topology animation |
-| `log` | Free-text log line from any agent |
-| `finding` | Structured finding: id, severity, title, description |
-| `campaign_complete` | Terminal event: campaign_id, run_id, summary counts, duration |
-
-### FindingsPage — `/findings`
-
-Paginated findings review with status management.
-
-- Filters by `severity`, `status`, `asi_class`.
-- Verdict badges lazy-fetch details and render confidence score + verdict path.
-- Status transitions (`PUT /api/findings/{id}/status`) require `reviewer_id` + `rationale`.
-- Attempts table from `GET /api/findings/{id}/attempts`.
-
-### RedTeamPage — `/redteam`
-
-Live incident feed and run detail panel.
-
-- Polls `GET /api/incidents` every 30 seconds.
-- Row click opens detail panel from `GET /api/runs/{run_id}`.
-- Attacks table with humanized strategy labels and finding IDs (linkable to FindingsPage).
-
----
-
-## Source Layout
-
-```
-canary/
-├── index.html
-├── vite.config.ts           # /api proxy → http://localhost:8001 (dev)
-├── tailwind.config.js
-├── nginx.conf               # /api/* → redteam-backend:8001 (prod), SSE-optimized
-├── Dockerfile               # Multi-stage: node build → nginx serve
-├── package.json
-└── src/
-    ├── main.tsx
-    ├── App.tsx              # View switch: home, audit, findings, redteam, projects
-    ├── components/
-    │   ├── Navbar.tsx
-    │   ├── Hero.tsx
-    │   └── AgentGraphPanel.tsx      # live agent topology SVG used by RunAuditPage
-    ├── lib/
-    │   ├── api.ts                  # single client for every backend endpoint
-    │   ├── commands.ts             # chat command parser
-    │   ├── db.ts                   # IndexedDB run history (idb-keyval)
-    │   ├── techniques.ts           # attack technique catalogue
-    │   └── types.ts                # shared domain types (Phase, FindingPayload, ...)
-    └── pages/
-        ├── RunAuditPage.tsx
-        ├── FindingsPage.tsx
-        └── RedTeamPage.tsx
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | React 19 + TypeScript |
-| Bundler | Vite 8 |
-| Styling | TailwindCSS 3 |
-| Typography | JetBrains Mono |
-| Linting | Oxlint |
-| Production server | nginx 1.25-alpine |
-
-No external UI component library. All UI is hand-built with Tailwind utility classes.
-
----
-
-## Environment Variables
-
-| Variable | Description | Default |
-|---|---|---|
-| `CANARY_API_URL` | Upstream backend base URL, server-side Vercel env | — |
-| `CANARY_API_TOKEN` | Scoped backend bearer token, server-side Vercel env | — |
-| `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth App client ID, server-side | — |
-| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App secret, server-side | — |
-| `GITHUB_OAUTH_REDIRECT_URI` | OAuth callback URL (`/api/auth/callback`) | Derived from `APP_URL` |
-| `GITHUB_ALLOWED_LOGINS` | Comma-separated GitHub logins allowed into the dashboard | Required; fail closed |
-| `SESSION_SECRET` | At least 32 random characters for signing sessions | — |
-| `APP_URL` | Canonical Vercel dashboard URL | Request origin |
-| `AUTH_REQUIRED` | Keep `true` in deployments; `false` enables bypass only in non-production or when the explicit development flag is set | `true` |
-| `CANARY_DEV_BYPASS` | Set to `true` only for the temporary hosted hackathon development bypass; never use for a public production deployment | `false` |
-
-The browser always requests its same-origin `/api/*` path. Vercel's authenticated proxy injects the server-side token and forwards typed dashboard management requests; Docker nginx injects `API_SECRET_KEY` into its upstream request.
-
-No `VITE_API_TOKEN` is supported: Vite would embed it in a public JavaScript bundle.
-
----
-
-## nginx SSE Configuration
-
-The production nginx config applies the following settings on the `/api/campaigns/run` SSE route so events are not buffered:
-
-```
-proxy_buffering off;
-proxy_cache off;
-proxy_read_timeout 300s;
-add_header X-Accel-Buffering no;
-```
-
-Without these, nginx's default response buffering will hold SSE frames until the buffer fills, breaking the live topology animation and log stream.
-
----
-
-## Development
+React/TypeScript/Vite dashboard inside the Agent Canary monorepo.
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
+npm ci
+cp .env.example .env.local
+# Local only: AUTH_REQUIRED=false
+# Set CANARY_API_URL=http://127.0.0.1:8001 and CANARY_API_TOKEN to backend API_SECRET_KEY.
+npm run dev
+npm run build
+npm run lint
+npm run test:api
 ```
 
-For local UI work, run the Docker stack so nginx can supply the server-side API credential. The Vite server is intentionally not an authenticated production proxy.
+Both Vite and the Node static server use the deployed server-side API/auth
+handlers. The browser calls same-origin `/api`, and the backend bearer token
+stays in the server process. SSE responses stream through the proxy.
+`npm run dev` binds to loopback. Production cannot bypass GitHub OAuth through
+`AUTH_REQUIRED=false` or `CANARY_DEV_BYPASS`.
 
----
+For Vercel set the deployment root to `canary/`. Set `CANARY_API_URL`,
+`CANARY_API_TOKEN`, OAuth client credentials, `GITHUB_ALLOWED_LOGINS`,
+`SESSION_SECRET` (32+ characters), `APP_URL` and redirect URI on the server.
+Never expose secrets in `VITE_*` variables. The example allowlist uses
+`stevemensah333-rgb`.
 
-## Production Build
+The Docker image builds with Node 22 and serves built assets with the Node
+server at port 8000. Its default production environment requires OAuth.
+The root Compose override is a loopback-only local demo with explicit local
+identity; do not use that override for hosting. `nginx.conf` is a legacy
+configuration and is no longer the Docker runtime.
 
-```bash
-npm run build      # outputs to dist/
-```
-
-Type-checking (`tsc -b`) runs before bundling. Fix all type errors before deploying.
-
----
-
-## Docker
-
-Multi-stage build: Node 20 builds the static assets, nginx 1.25-alpine serves them.
-
-```bash
-docker build -t canary-frontend \
-  .
-```
-
-Or bring up the full stack from the repo root:
-
-```bash
-docker compose up -d --build
-```
-
-The container serves the SPA on port **8000** and proxies `/api/*` to `redteam-backend:8001`.
-
----
-
-## Scripts
-
-| Script | Command | Description |
-|---|---|---|
-| `dev` | `vite` | Dev server with HMR |
-| `build` | `tsc -b && vite build` | Type-check + bundle |
-| `lint` | `oxlint` | Static analysis |
-| `preview` | `vite preview` | Preview production build locally |
-
----
-
-## API Surface
-
-The dashboard proxy authenticates the GitHub session server-side and forwards
-the browser's typed API calls. It supports read and dashboard-management
-methods, while CI continues to use a separate scoped project token directly
-against the backend. Every browser request is wrapped in `src/lib/api.ts`.
-
-Configure the GitHub OAuth App callback as:
-
-```
-https://<your-vercel-domain>/api/auth/callback
-```
-
-For the separate hackathon dashboard, use
-`https://canary-cutc-2026-dashboard.vercel.app/api/auth/callback` (or the
-custom Vercel domain assigned to that project). In the Vercel project, add the
-following as server-side environment variables for the Production and Preview
-environments: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`,
-`GITHUB_OAUTH_REDIRECT_URI`, `GITHUB_ALLOWED_LOGINS`, `SESSION_SECRET`, and
-`APP_URL`. `GITHUB_ALLOWED_LOGINS` is a comma-separated allowlist of GitHub
-login names; an empty allowlist intentionally fails closed. The OAuth client
-secret and session secret are never exposed to browser code.
-
-For local development, set `AUTH_REQUIRED=false`. The hosted hackathon demo
-also uses `AUTH_REQUIRED=false` plus `CANARY_DEV_BYPASS=true` explicitly; this
-returns a local development identity and must be removed before public
-production. Production should use `AUTH_REQUIRED=true` (the default) with the
-GitHub credentials and allowlist configured above.
-
-Keep `CANARY_API_TOKEN`, `GITHUB_OAUTH_CLIENT_SECRET`, and `SESSION_SECRET` in
-Vercel server-side environment variables only. Never prefix them with `VITE_`.
-
-| Method | Endpoint | Used by |
-|---|---|---|
-| `GET` | `/api/status` | health check |
-| `GET` | `/api/runs/{run_id}` | RedTeamPage |
-| `GET` | `/api/runs/{run_id}/report-markdown` | RunAuditPage |
-| `GET` | `/api/findings` | FindingsPage |
-| `GET` | `/api/findings/{id}` | FindingsPage |
-| `GET` | `/api/findings/{id}/attempts` | FindingsPage |
-| `PUT` | `/api/findings/{id}/status` | FindingsPage |
-| `GET` | `/api/incidents` | RedTeamPage |
-| `POST` | `/api/campaigns/run` (SSE) | RunAuditPage |
+See [monorepo setup](../docs/LOCAL_DEVELOPMENT.md) and
+[research status](../docs/RESEARCH_PLAN.md).

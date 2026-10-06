@@ -16,7 +16,6 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from cyberredteam.langgraph.orchestrator import GraphOrchestrator
 from cyberredteam.release_gate import (
     DEFAULT_STRATEGIES,
     accept_baseline,
@@ -61,6 +60,16 @@ logging.basicConfig(level=logging.INFO)
 settings = get_settings()
 
 
+def GraphOrchestrator(*args, **kwargs):
+    """Load the campaign engine only when executing a model-backed campaign.
+
+    Health, project and evidence routes do not need to initialize the model
+    stack. The symbol remains patchable by existing orchestration tests.
+    """
+    from cyberredteam.langgraph.orchestrator import GraphOrchestrator as engine
+    return engine(*args, **kwargs)
+
+
 def _frontend_origins() -> list[str]:
     return [origin.strip() for origin in settings.frontend_origins.split(",") if origin.strip()] or ["*"]
 
@@ -80,7 +89,7 @@ def require_auth(request: Request, authorization: Optional[str] = Header(None)) 
     if scheme == "Bearer" and settings.api_secret_key and token == settings.api_secret_key:
         return
     parsed = parse_project_token(token) if scheme == "Bearer" else None
-    if parsed and request.url.path == "/api/ci/releases":
+    if parsed:
         lookup_prefix, _ = parsed
         store = SQLiteStore(settings.database_location)
         try:
@@ -88,8 +97,16 @@ def require_auth(request: Request, authorization: Optional[str] = Header(None)) 
                 record = session.scalar(select(ProjectTokenRecord).where(ProjectTokenRecord.lookup_prefix == lookup_prefix))
                 expired = record.expires_at is not None and record.expires_at <= datetime.utcnow() if record else True
                 if record and record.revoked_at is None and not expired and verify_project_token(token, record.token_hash, pepper=settings.token_pepper):
-                    request.state.project_token_project_id = record.project_id
-                    return
+                    scopes = set(record.scopes or [])
+                    if request.method == "POST" and request.url.path == "/api/ci/releases" and "release:create" in scopes:
+                        request.state.project_token_project_id = record.project_id
+                        return
+                    release_route = re.fullmatch(r"/api/releases/([A-Za-z0-9_-]+)(?:/(?:regressions|report|report\.md))?", request.url.path)
+                    if request.method == "GET" and release_route and "release:read" in scopes:
+                        release = session.get(ReleaseRecord, release_route.group(1))
+                        if release and release.project_id == record.project_id:
+                            return
+                    raise HTTPException(status_code=403, detail="Project token is not authorized for this operation.")
         finally:
             store.close()
     if not settings.api_secret_key:
@@ -126,6 +143,7 @@ class RunRequest(BaseModel):
 
 class ProjectCreateRequest(BaseModel):
     name: str
+    repository: Optional[str] = Field(default=None, pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
     endpoint: str
     environment: str = "preview"
     request_template: str = '{"message":"{{PROMPT}}"}'
@@ -580,6 +598,7 @@ def create_project_endpoint(body: ProjectCreateRequest):
                 session,
                 {
                     "name": body.name,
+                    "repository": body.repository.lower() if body.repository else None,
                     "endpoint": body.endpoint,
                     "environment": body.environment,
                     "request_template": body.request_template,
@@ -818,14 +837,18 @@ def create_ci_release(body: CiReleaseRequest, request: Request):
         raise HTTPException(status_code=422, detail="repository must be owner/name")
     if not re.fullmatch(r"[A-Za-z0-9._/-]{4,128}", body.commit_sha):
         raise HTTPException(status_code=422, detail="commit_sha contains unsupported characters")
-    try:
-        _validate_target_contract(body.endpoint, body.request_template)
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
-
     store = SQLiteStore(settings.database_location)
     try:
         with store.SessionLocal() as session:
+            scoped_project_id = getattr(request.state, "project_token_project_id", None)
+            if scoped_project_id:
+                authorized_project = session.get(ProjectRecord, scoped_project_id)
+                if not authorized_project or str(authorized_project.repository or "").lower() != body.repository.lower():
+                    raise HTTPException(status_code=403, detail="Project token is not authorized for this repository")
+            try:
+                _validate_target_contract(body.endpoint, body.request_template)
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
             project = upsert_ci_project(
                 session,
                 {
@@ -839,7 +862,6 @@ def create_ci_release(body: CiReleaseRequest, request: Request):
                     "gate": body.gate,
                 },
             )
-            scoped_project_id = getattr(request.state, "project_token_project_id", None)
             if scoped_project_id and scoped_project_id != project.project_id:
                 raise HTTPException(status_code=403, detail="Project token is not authorized for this repository")
             if body.baseline_endpoint:

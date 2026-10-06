@@ -84,8 +84,8 @@ def test_ci_uses_last_passing_main_release_not_a_pr_as_baseline(tmp_path):
             project = upsert_ci_project(
                 session,
                 {
-                    "repository": "auro-rium/demo-agent",
-                    "name": "auro-rium/demo-agent",
+                    "repository": "stevemensah333-rgb/demo-agent",
+                    "name": "stevemensah333-rgb/demo-agent",
                     "endpoint": "https://agent.example.test/chat",
                     "strategies": ["sensitive_data_exposure", "authorization_boundary"],
                     "gate": {"block_on": ["critical", "high"], "max_new_findings": 0},
