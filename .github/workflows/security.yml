@@ -1,0 +1,45 @@
+name: Security checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Audit dashboard lockfile
+        working-directory: canary
+        run: npm audit --audit-level=low
+      - name: Audit Python lockfiles including optional extras
+        run: |
+          python3 -m venv /tmp/canary-security-tools
+          /tmp/canary-security-tools/bin/pip install uv pip-audit==2.10.1
+          for project in cyber-redteam-foundry demo-agent; do
+            /tmp/canary-security-tools/bin/uv export --project "$project" --frozen --all-extras --no-hashes --no-emit-project --format requirements-txt --output-file /tmp/canary-requirements.txt
+            /tmp/canary-security-tools/bin/pip-audit --disable-pip --no-deps -r /tmp/canary-requirements.txt
+          done
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
